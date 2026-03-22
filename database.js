@@ -128,7 +128,7 @@ async function initDB() {
   await pool.query(`
     INSERT INTO site_settings (key, value) VALUES
       ('hero_image', 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1600&q=80'),
-      ('hero_title', 'SE FORMER, ÉVOLUER'),
+      ('hero_title', 'SYNERGIE OI'),
       ('hero_subtitle', 'La SYNERGIE de nos compétences au service de la formation'),
       ('about_image', 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&q=80'),
       ('qualiopi_active', 'true')
