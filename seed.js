@@ -4,7 +4,18 @@ const { query, pool } = require('./database');
 
 async function seed() {
   // Attendre que la DB soit prête
-  await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 3000));
+
+  // Tester la connexion avant de continuer
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ Connexion PostgreSQL OK');
+  } catch (e) {
+    console.error('❌ Impossible de se connecter à PostgreSQL:', e.message);
+    console.error('Vérifiez la variable DATABASE_URL');
+    await pool.end().catch(() => {});
+    process.exit(0); // exit 0 pour ne pas bloquer le démarrage du serveur
+  }
 
   console.log('🌱 Seeding PostgreSQL...');
 

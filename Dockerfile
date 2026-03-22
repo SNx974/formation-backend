@@ -9,5 +9,5 @@ COPY . .
 
 EXPOSE 5000
 
-# Seed la BDD puis démarre le serveur
-CMD ["sh", "-c", "node seed.js && node server.js"]
+# ; au lieu de && : le serveur démarre même si le seed échoue
+CMD ["sh", "-c", "node seed.js; node server.js"]
