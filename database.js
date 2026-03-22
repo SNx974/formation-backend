@@ -6,11 +6,10 @@ const pool = new Pool({
   ssl: false
 });
 
-// Helper : query rapide
 const query = (text, params) => pool.query(text, params);
 
-// Initialisation des tables
 async function initDB() {
+  // Tables de base
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -29,11 +28,16 @@ async function initDB() {
       short_description TEXT,
       category TEXT,
       level TEXT DEFAULT 'débutant',
-      price NUMERIC DEFAULT 0,
       image_url TEXT,
       instructor TEXT,
       instructor_bio TEXT,
       duration TEXT,
+      objectifs TEXT,
+      prerequis TEXT,
+      public_vise TEXT,
+      lieu TEXT,
+      sessions TEXT,
+      modalites TEXT,
       is_published INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT NOW()
     );
@@ -83,8 +87,55 @@ async function initDB() {
       issued_at TIMESTAMP DEFAULT NOW(),
       certificate_code TEXT UNIQUE
     );
+
+    CREATE TABLE IF NOT EXISTS inscription_requests (
+      id SERIAL PRIMARY KEY,
+      formation_id INTEGER REFERENCES formations(id) ON DELETE SET NULL,
+      formation_title TEXT,
+      nom TEXT NOT NULL,
+      prenom TEXT NOT NULL,
+      email TEXT NOT NULL,
+      telephone TEXT,
+      niveau_etude TEXT,
+      situation_pro TEXT,
+      message TEXT,
+      statut TEXT DEFAULT 'nouveau',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
   `);
-  console.log('✅ Tables PostgreSQL initialisées');
+
+  // Migrations — ajout de colonnes si elles n'existent pas
+  const migrations = [
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS objectifs TEXT`,
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS prerequis TEXT`,
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS public_vise TEXT`,
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS lieu TEXT`,
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS sessions TEXT`,
+    `ALTER TABLE formations ADD COLUMN IF NOT EXISTS modalites TEXT`,
+    `ALTER TABLE formations DROP COLUMN IF EXISTS price`,
+  ];
+  for (const m of migrations) {
+    await pool.query(m).catch(() => {});
+  }
+
+  // Paramètres par défaut
+  await pool.query(`
+    INSERT INTO site_settings (key, value) VALUES
+      ('hero_image', 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1600&q=80'),
+      ('hero_title', 'SE FORMER, ÉVOLUER'),
+      ('hero_subtitle', 'La SYNERGIE de nos compétences au service de la formation'),
+      ('about_image', 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&q=80'),
+      ('qualiopi_active', 'true')
+    ON CONFLICT (key) DO NOTHING
+  `);
+
+  console.log('✅ Base de données initialisée');
 }
 
 initDB().catch(err => console.error('❌ Erreur init DB:', err));

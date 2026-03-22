@@ -14,6 +14,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/formations', require('./routes/formations'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/inscriptions', require('./routes/inscriptions'));
+app.use('/api/settings', require('./routes/settings'));
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', name: 'SE FORMER ÉVOLUER API' }));
 

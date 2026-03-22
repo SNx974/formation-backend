@@ -8,17 +8,17 @@ router.use(auth, admin);
 
 // ── STATS ─────────────────────────────────────────────────────
 router.get('/stats', async (req, res) => {
-  const [users, formations, enrollments, revenue] = await Promise.all([
+  const [users, formations, enrollments, inscriptions] = await Promise.all([
     query('SELECT COUNT(*) as count FROM users WHERE role = $1', ['user']),
     query('SELECT COUNT(*) as count FROM formations'),
     query('SELECT COUNT(*) as count FROM enrollments'),
-    query('SELECT SUM(f.price) as total FROM enrollments e JOIN formations f ON f.id = e.formation_id'),
+    query("SELECT COUNT(*) as count FROM inscription_requests WHERE statut = 'nouveau'"),
   ]);
   res.json({
     users: parseInt(users.rows[0].count),
     formations: parseInt(formations.rows[0].count),
     enrollments: parseInt(enrollments.rows[0].count),
-    revenue: parseFloat(revenue.rows[0].total) || 0
+    new_inscriptions: parseInt(inscriptions.rows[0].count)
   });
 });
 
@@ -34,20 +34,27 @@ router.get('/formations', async (req, res) => {
 });
 
 router.post('/formations', async (req, res) => {
-  const { title, description, short_description, category, level, price, image_url, instructor, instructor_bio, duration } = req.body;
+  const { title, description, short_description, category, level, image_url, instructor, instructor_bio, duration,
+    objectifs, prerequis, public_vise, lieu, sessions, modalites } = req.body;
   const result = await query(`
-    INSERT INTO formations (title, description, short_description, category, level, price, image_url, instructor, instructor_bio, duration)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id
-  `, [title, description, short_description, category, level, price || 0, image_url, instructor, instructor_bio, duration]);
+    INSERT INTO formations (title, description, short_description, category, level, image_url, instructor, instructor_bio, duration,
+      objectifs, prerequis, public_vise, lieu, sessions, modalites)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id
+  `, [title, description, short_description, category, level, image_url, instructor, instructor_bio, duration,
+      objectifs, prerequis, public_vise, lieu, sessions, modalites]);
   res.status(201).json({ id: result.rows[0].id, message: 'Formation créée' });
 });
 
 router.put('/formations/:id', async (req, res) => {
-  const { title, description, short_description, category, level, price, image_url, instructor, instructor_bio, duration, is_published } = req.body;
+  const { title, description, short_description, category, level, image_url, instructor, instructor_bio, duration,
+    objectifs, prerequis, public_vise, lieu, sessions, modalites, is_published } = req.body;
   await query(`
     UPDATE formations SET title=$1, description=$2, short_description=$3, category=$4, level=$5,
-    price=$6, image_url=$7, instructor=$8, instructor_bio=$9, duration=$10, is_published=$11 WHERE id=$12
-  `, [title, description, short_description, category, level, price, image_url, instructor, instructor_bio, duration, is_published, req.params.id]);
+    image_url=$6, instructor=$7, instructor_bio=$8, duration=$9,
+    objectifs=$10, prerequis=$11, public_vise=$12, lieu=$13, sessions=$14, modalites=$15, is_published=$16
+    WHERE id=$17
+  `, [title, description, short_description, category, level, image_url, instructor, instructor_bio, duration,
+      objectifs, prerequis, public_vise, lieu, sessions, modalites, is_published, req.params.id]);
   res.json({ message: 'Formation mise à jour' });
 });
 
@@ -144,6 +151,49 @@ router.get('/enrollments', async (req, res) => {
     ORDER BY e.enrolled_at DESC
   `);
   res.json(result.rows);
+});
+
+// ── INSCRIPTION REQUESTS ───────────────────────────────────────
+router.get('/inscriptions', async (req, res) => {
+  const { statut } = req.query;
+  let sql = 'SELECT * FROM inscription_requests';
+  const params = [];
+  if (statut) { sql += ' WHERE statut = $1'; params.push(statut); }
+  sql += ' ORDER BY created_at DESC';
+  const result = await query(sql, params);
+  res.json(result.rows);
+});
+
+router.put('/inscriptions/:id/statut', async (req, res) => {
+  const { statut } = req.body;
+  const allowed = ['nouveau', 'en_cours', 'accepte', 'refuse'];
+  if (!allowed.includes(statut)) return res.status(400).json({ message: 'Statut invalide' });
+  await query('UPDATE inscription_requests SET statut = $1 WHERE id = $2', [statut, req.params.id]);
+  res.json({ message: 'Statut mis à jour' });
+});
+
+router.delete('/inscriptions/:id', async (req, res) => {
+  await query('DELETE FROM inscription_requests WHERE id = $1', [req.params.id]);
+  res.json({ message: 'Demande supprimée' });
+});
+
+// ── SITE SETTINGS ──────────────────────────────────────────────
+router.get('/settings', async (req, res) => {
+  const result = await query('SELECT key, value FROM site_settings');
+  const settings = {};
+  result.rows.forEach(r => { settings[r.key] = r.value; });
+  res.json(settings);
+});
+
+router.put('/settings', async (req, res) => {
+  const entries = Object.entries(req.body);
+  for (const [key, value] of entries) {
+    await query(`
+      INSERT INTO site_settings (key, value, updated_at) VALUES ($1, $2, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
+    `, [key, value]);
+  }
+  res.json({ message: 'Paramètres mis à jour' });
 });
 
 module.exports = router;
